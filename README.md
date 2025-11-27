@@ -31,12 +31,17 @@ Al pulsar "**Play**", se reinician las variables (`sequence`, `playerStep`, `lev
 3.  **Feedback Visual:** Se utiliza `animateColorAsState` de Jetpack Compose para realizar una **transición suave de color** (iluminación) en cada botón activo, simulando el parpadeo de luz.
 4.  **Feedback Auditivo:** La lógica de audio está preparada para reproducir frecuencias específicas.
 
+<img width="319" height="674" alt="image" src="https://github.com/user-attachments/assets/0b524242-b572-438c-96ce-d3bec8264d55" />
+
+
 #### Fase 3: Turno del Jugador (Input)
 
 1.  Se **habilita** la interacción en la UI.
 2.  Al pulsar un botón, se valida inmediatamente contra la secuencia almacenada en el **ViewModel**.
 3.  **Acierto:** Si el color coincide, se avanza el paso. Si se completa la secuencia, se lanza la siguiente ronda tras una breve pausa.
 4.  **Fallo:** Se dispara inmediatamente el estado `GAMEOVER`.
+
+<img width="269" height="584" alt="image" src="https://github.com/user-attachments/assets/24b5e13c-f7e8-4f2e-bed3-578f0c1a1d49" />
 
 #### 4\. Condición de Derrota (Game Over)
 
@@ -45,6 +50,9 @@ Si el jugador pulsa un color incorrecto:
   * El estado cambia a **`GAMEOVER`**.
   * Se muestra el mensaje de derrota indicando el nivel alcanzado.
   * El sistema queda a la espera de que el usuario pulse "**Try Again**" para reiniciar.
+
+<img width="279" height="572" alt="image" src="https://github.com/user-attachments/assets/57e763ee-fbc7-4468-94c0-7c183f126a14" />
+
 
 -----
 
