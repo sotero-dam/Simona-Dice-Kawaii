@@ -3,92 +3,97 @@ package com.example.simonadice.viewmodel
 import com.example.simonadice.data.RecordRepository
 import com.example.simonadice.model.GameState
 import com.example.simonadice.model.Record
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.TestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
 import java.util.Date
 
+class MainDispatcherRule(
+    val testDispatcher: TestDispatcher = UnconfinedTestDispatcher()
+) : TestWatcher() {
+
+    // Se ejecuta ANTES de cada test: establece el dispatcher de test.
+    override fun starting(description: Description?) {
+        Dispatchers.setMain(testDispatcher)
+    }
+
+    // Se ejecuta DESPUÉS de cada test: restaura el dispatcher original.
+    override fun finished(description: Description?) {
+        Dispatchers.resetMain()
+    }
+}
+
 /**
- * Pruebas unitarias para SimonViewModel extremadamente sencillas, usando solo JUnit.
- *
- * NOTA: Para funcionar sin librerías de Coroutines de prueba, se usan Thread.sleep()
- * para dar tiempo al ViewModel de ejecutar sus coroutines internas.
+ * Tests unitarios para SimonViewModel. Usa MainDispatcherRule para manejar
+ * corrutinas
  */
 class SimonViewModelSimpleTest {
 
-    // Repositorio de Records simulado (Mock simple)
-    private lateinit var mockRepo: MockRecordRepository
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
 
-    // ViewModel a probar
+    private lateinit var mockRepo: MockRecordRepository
     private lateinit var viewModel: SimonViewModel
 
     /**
-     * Implementación simple de un repositorio de prueba para controlar los datos.
-     * Simula la interfaz RecordRepository.
+     * Implementación simple de un repositorio simulado (Mock).
      */
     private class MockRecordRepository(
         var savedRecord: Record = Record()
     ) : RecordRepository {
-        // La implementación es síncrona. Se añade un sleep para ayudar a la prueba.
         override suspend fun getRecord(): Record {
-            Thread.sleep(1)
             return savedRecord
         }
+
         override suspend fun saveRecord(record: Record) {
-            Thread.sleep(1)
             savedRecord = record
         }
     }
 
     @Before
     fun setup() {
-        // 1. Inicializa el mock con el record inicial (0, 0)
         mockRepo = MockRecordRepository()
-        // 2. Pasa el mock al ViewModel
+        // La inicialización del ViewModel (que llama loadRecord) ahora funciona sin error de Dispatcher.
         viewModel = SimonViewModel(mockRepo)
-        // 3. Esperamos un poco para que la Coroutine de loadRecord() en el init se ejecute
-        Thread.sleep(50)
+        // No hace falta Thread.sleep().
     }
-
-    // ------------------------------------
-    // PRUEBAS DE INICIO Y RECORD
-    // ------------------------------------
 
     @Test
     fun init_loadsDefaultRecord() {
-        // ASSERT: Se cargó el record por defecto (0) y se actualizó el mensaje inicial.
+        // ASSERT: Se carga el record por defecto (0)
         assertEquals(0, viewModel.currentRecord.value.highScore)
         assertTrue(viewModel.message.value.contains("Start! ✨"))
     }
 
     @Test
     fun handlePlayerInput_gameOver_savesNewRecord() {
-        // ARRANGE: Inyectar un record anterior de 1
+        // ARRANGE: Inyectar un record previo de 1
         mockRepo.savedRecord = Record(1, Date(1000L))
-        viewModel = SimonViewModel(mockRepo) // Reinicializar
-        Thread.sleep(50)
+        viewModel = SimonViewModel(mockRepo) // Re-inicializar
 
-        // Iniciar juego (Nivel 1, secuencia de 1 elemento)
+        // Iniciar juego (Nivel 1)
         viewModel.startGame()
-        Thread.sleep(50)
 
         val sequenceSizeBefore = viewModel.sequence.size // Será 1
 
         // ACT: Provocar Game Over
         val incorrectColorId = (viewModel.sequence.first() + 1) % 4
         viewModel.handlePlayerInput(incorrectColorId)
-        Thread.sleep(50)
 
-        // ASSERT: El nivel alcanzado (1) es > record anterior (1), por lo que se guarda.
+        // ASSERT: Se guarda el nuevo record y el estado pasa a GAMEOVER
         assertEquals(sequenceSizeBefore, mockRepo.savedRecord.highScore)
         assertEquals(GameState.GAMEOVER, viewModel.gameState.value)
         assertTrue(viewModel.message.value.contains("NEW RECORD! 🎉"))
     }
-
-    // ------------------------------------
-    // PRUEBAS DE LÓGICA DE JUEGO
-    // ------------------------------------
 
     @Test
     fun startGame_initializesLevelAndSequence() {
@@ -104,11 +109,10 @@ class SimonViewModelSimpleTest {
     fun handlePlayerInput_correctColor_advancesPlayerStep() {
         // ARRANGE
         viewModel.startGame()
-        Thread.sleep(50)
-        // Forzamos el estado para simular que Simon terminó de mostrar la secuencia
+        // Forzar estado a PLAYER
         viewModel._gameState.value = GameState.PLAYER
 
-        // ACT: Acierta el primer paso
+        // ACT: Introducir correctamente el primer paso
         val correctColorId = viewModel.sequence.first()
         viewModel.handlePlayerInput(correctColorId)
 
@@ -121,10 +125,9 @@ class SimonViewModelSimpleTest {
     fun handlePlayerInput_incorrectColor_setsGameOver() {
         // ARRANGE
         viewModel.startGame()
-        Thread.sleep(50)
         viewModel._gameState.value = GameState.PLAYER
 
-        // ACT: Falla el primer paso
+        // ACT: Fallar el primer paso
         val incorrectColorId = (viewModel.sequence.first() + 1) % 4
         viewModel.handlePlayerInput(incorrectColorId)
 
